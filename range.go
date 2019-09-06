@@ -26,5 +26,5 @@ type Range interface {
 type RangeIterator interface {
 	Get() (RangeID, interface{})
 	Next()
-	HasNext() bool
+	InRange() bool
 }
