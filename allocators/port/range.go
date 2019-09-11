@@ -28,8 +28,8 @@ var (
 )
 
 type ranger struct {
-	base   int
-	offset int
+	lower int
+	upper int
 }
 
 func parseRangeID(rangeID allocator.RangeID) (int, error) {
@@ -48,13 +48,13 @@ func generateRangeID(port int) allocator.RangeID {
 func (r *ranger) Contains(rangeID allocator.RangeID) bool {
 	port, err := parseRangeID(rangeID)
 
-	return (err == nil) && (port >= r.base) && (port <= (r.base + r.offset))
+	return (err == nil) && (port >= r.lower) && (port <= r.upper)
 }
 
 func (r *ranger) First() allocator.RangeIterator {
 	return &iterator{
 		ranger: r,
-		cur:    r.base,
+		cur:    r.lower,
 	}
 }
 
@@ -72,5 +72,5 @@ func (i *iterator) Next() {
 }
 
 func (i *iterator) InRange() bool {
-	return (i.cur >= i.ranger.base) && (i.cur <= (i.ranger.base + i.ranger.offset))
+	return (i.cur >= i.ranger.lower) && (i.cur <= i.ranger.upper)
 }
