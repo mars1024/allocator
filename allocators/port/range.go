@@ -24,12 +24,29 @@ import (
 )
 
 var (
+	ErrUpperPort  = errors.New("upper port is bigger than lower port")
+	ErrOutOfRange = errors.New("port is out of range")
 	ErrBadRangeID = errors.New("bad rangeID")
 )
 
 type ranger struct {
 	lower int
 	upper int
+}
+
+func NewPortRanger(lower, upper int) (allocator.Range, error) {
+	if lower > upper {
+		return nil, ErrUpperPort
+	}
+
+	if lower <= 0 || upper <= 0 || lower > 65535 || upper > 65535 {
+		return nil, ErrOutOfRange
+	}
+
+	return &ranger{
+		lower: lower,
+		upper: upper,
+	}, nil
 }
 
 func parseRangeID(rangeID allocator.RangeID) (int, error) {
