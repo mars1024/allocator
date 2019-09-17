@@ -18,9 +18,9 @@ package port
 
 import "github.com/mars1024/allocator"
 
-func NewPortAllocator(lowerPort , upperPort int) (allocator.Interface, error) {
+func NewPortAllocator(lowerPort, upperPort int) (allocator.Interface, error) {
 	ranger, err := NewPortRanger(lowerPort, upperPort)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 

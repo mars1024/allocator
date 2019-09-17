@@ -16,7 +16,10 @@
 
 package allocator
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 type Interface interface {
 	Assign(RangeID) error
@@ -32,22 +35,27 @@ var (
 )
 
 type allocator struct {
+	*sync.RWMutex
 	ranger Range
 	store  map[RangeID]struct{}
 }
 
 func NewAllocator(ranger Range) Interface {
 	return &allocator{
-		ranger: ranger,
-		store:  make(map[RangeID]struct{}),
+		RWMutex: new(sync.RWMutex),
+		ranger:  ranger,
+		store:   make(map[RangeID]struct{}),
 	}
 }
 
 func (a *allocator) Assign(id RangeID) error {
-	if ! a.ranger.Contains(id) {
+	a.Lock()
+	defer a.Unlock()
+
+	if !a.ranger.Contains(id) {
 		return ErrOutOfRange
 	}
-	if a.Has(id) {
+	if a.has(id) {
 		return ErrAllocated
 	}
 	a.store[id] = struct{}{}
@@ -65,11 +73,21 @@ func (a *allocator) Allocate() (RangeID, interface{}, error) {
 }
 
 func (a *allocator) Release(id RangeID) error {
+	a.Lock()
+	defer a.Unlock()
+
 	delete(a.store, id)
 	return nil
 }
 
 func (a *allocator) Has(id RangeID) bool {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.has(id)
+}
+
+func (a *allocator) has(id RangeID) bool {
 	if _, exist := a.store[id]; exist {
 		return true
 	}
