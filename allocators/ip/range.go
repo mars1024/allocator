@@ -17,10 +17,16 @@
 package ip
 
 import (
+	"math/big"
 	"net"
 
 	"github.com/mars1024/allocator"
 )
+
+type IP struct {
+	address *net.IPNet
+	gateway net.IP
+}
 
 type ranger struct {
 	subnet  *net.IPNet
@@ -29,12 +35,41 @@ type ranger struct {
 	gateway net.IP
 }
 
-func (*ranger) Contains(allocator.RangeID) bool {
-	panic("implement me")
+func NewIPRanger(subnet *net.IPNet, start, end, gateway net.IP) (allocator.Range, error) {
+	// TODO: validation and defaulting
+
+	return &ranger{
+		subnet:  subnet,
+		start:   start,
+		end:     end,
+		gateway: gateway,
+	}, nil
 }
 
-func (*ranger) First() allocator.RangeIterator {
-	panic("implement me")
+func (r *ranger) Contains(rangeID allocator.RangeID) bool {
+	ip := parseRangeID(rangeID)
+
+	if !r.subnet.Contains(ip) {
+		return false
+	}
+	if cmp(ip, r.start) < 0 {
+		return false
+	}
+	if cmp(ip, r.end) > 0 {
+		return false
+	}
+	if r.gateway.Equal(ip) {
+		return false
+	}
+
+	return true
+}
+
+func (r *ranger) First() allocator.RangeIterator {
+	return &iterator{
+		ranger: r,
+		cur:    r.start,
+	}
 }
 
 type iterator struct {
@@ -42,14 +77,54 @@ type iterator struct {
 	cur    net.IP
 }
 
-func (*iterator) Get() (allocator.RangeID, interface{}) {
-	panic("implement me")
+func (i *iterator) Get() (allocator.RangeID, interface{}) {
+	return generateRangeID(i.cur), &IP{
+		address: &net.IPNet{
+			IP:   i.cur,
+			Mask: i.ranger.subnet.Mask,
+		},
+		gateway: i.ranger.gateway,
+	}
 }
 
-func (*iterator) Next() {
-	panic("implement me")
+func (i *iterator) Next() {
+	i.cur = next(i.cur)
 }
 
-func (*iterator) InRange() bool {
-	panic("implement me")
+func (i *iterator) InRange() bool {
+	if i.ranger.gateway.Equal(i.cur) {
+		i.Next()
+		return i.InRange()
+	}
+	return cmp(i.cur, i.ranger.end) <= 0
+}
+
+func parseRangeID(rangeID allocator.RangeID) net.IP {
+	return net.ParseIP(string(rangeID))
+}
+
+func generateRangeID(ip net.IP) allocator.RangeID {
+	return allocator.RangeID(ip.String())
+}
+
+func next(ip net.IP) net.IP {
+	i := ipToInt(ip)
+	return intToIP(i.Add(i, big.NewInt(1)))
+}
+
+func cmp(a, b net.IP) int {
+	aa := ipToInt(a)
+	bb := ipToInt(b)
+	return aa.Cmp(bb)
+}
+
+func ipToInt(ip net.IP) *big.Int {
+	if v := ip.To4(); v != nil {
+		return big.NewInt(0).SetBytes(v)
+	}
+	return big.NewInt(0).SetBytes(ip.To16())
+}
+
+func intToIP(i *big.Int) net.IP {
+	return net.IP(i.Bytes())
 }
